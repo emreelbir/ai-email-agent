@@ -1,0 +1,11 @@
+
+services:
+  agent:
+    build: .
+    container_name: ai-email-agent
+    volumes:
+      - ./workspace:/workspace
+    environment:
+      - OLLAMA_HOST=http://host.docker.internal:11434
+      - MODEL_NAME=gemma3:4b
+

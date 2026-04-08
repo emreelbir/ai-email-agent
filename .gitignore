@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+workspace/input/*
+workspace/output/*
+workspace/logs/*
+.DS_Store
