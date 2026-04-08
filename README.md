@@ -1,3 +1,11 @@
+## How It Works
+
+1. Reads email files from workspace/input
+2. Sends content to local LLM (Ollama)
+3. Parses and normalizes output
+4. Applies deterministic rules
+5. Generates structured JSON and summary report
+
 # AI Email Triage Agent
 
 A local AI-powered email triage system that classifies emails, assigns priority, and determines actions using a lightweight rule-based decision layer.
