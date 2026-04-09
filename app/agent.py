@@ -3,6 +3,7 @@ from tools import list_input_files, read_file, write_output, log
 from ollama_client import generate
 from prompts import build_prompt
 from rules import apply_rules
+from validators import validate_result
 
 def clean_json_response(text):
     text = text.strip()
@@ -125,7 +126,7 @@ def run_agent():
         try:
             email_text = read_file(filename)
             prompt = build_prompt(email_text)
-            response_text = generate(prompt)
+            response_text =  generate(prompt)
 
             cleaned_response = clean_json_response(response_text)
 
@@ -136,24 +137,68 @@ def run_agent():
                     "category": "general",
                     "priority": "medium",
                     "confidence": 0.0,
-                    "reasoning": "Model output was not valid JSON.",
-                    "summary": "Model did not return valid JSON.",
-                    "draft_reply": response_text
+                    "reasoning": "invalid json",
+                    "summary": "invalid json",
+                    "draft_reply": response_text,
                 }
 
+                normalized = normalize_result(parsed, filename)
+                normalized["parse_error"] = True
+                normalized["validation_errors"] = []
+
+                decision = {
+                    "final_action": "review_now",
+                    "queue": "manual_review",
+                    "requires_human": True,
+                    "status": "needs_review",
+                }
+
+                final_result = {**normalized, **decision}
+
+                output_name = f"{filename}.json"
+                write_output(
+                    output_name,
+                    json.dumps(final_result, indent=2, ensure_ascii=False) + "\n"
+                )
+
+                all_results.append(final_result)
+
+                log(f"[PARSE_FAIL] {filename} -> {output_name}")
+                print(f"Processed {filename} with parse failure")
+                continue
+
             normalized = normalize_result(parsed, filename)
-            decision = apply_rules(normalized)
+            normalized["category"] = "weird_category"   # <-- BURAYA
+            normalized["parse_error"] = False
+
+            validation = validate_result(normalized)
+
+            if not validation["is_valid"]:
+                normalized["validation_errors"] = validation["errors"]
+
+                decision = {
+                    "final_action": "review_now",
+                    "queue": "manual_review",
+                    "requires_human": True,
+                    "status": "needs_review",
+                }
+
+                log(f"[VALIDATION_FAIL] {filename} -> {validation['errors']}")
+            else:
+                normalized["validation_errors"] = []
+                decision = apply_rules(normalized)
+
             final_result = {**normalized, **decision}
 
             output_name = f"{filename}.json"
             write_output(
-            output_name,
-            json.dumps(final_result, indent=2, ensure_ascii=False) + "\n"
-             )
+                output_name,
+                json.dumps(final_result, indent=2, ensure_ascii=False) + "\n"
+            )
 
             all_results.append(final_result)
 
-            log(f"Processed {filename} -> {output_name}")
+            log(f"[SUCCESS] {filename} -> {output_name}")
             print(f"Processed {filename}")
 
         except Exception as e:
